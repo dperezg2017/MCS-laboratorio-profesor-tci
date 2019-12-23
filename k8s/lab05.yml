@@ -1,0 +1,74 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: lab05
+spec:
+  selector:
+    matchLabels:
+      app: lab05
+  replicas: 1
+  #strategy, para que actualice el POD,no haya tiemmpo de demora o sin conexion, remplaza imagenes, "crea una nueva y remplaza"
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        app: lab05
+    spec:
+      containers:
+        - name: lab05sut
+          image: mzegarra/lab05sut
+          #readinessProbe, intentas intentar, hasta que este listo, uan vez este listo, este se va a conectar 
+          readinessProbe:
+             httpGet:
+               path: /actuator/health
+               port: 9999
+             #que tanto demora cargar estecontenedor, 25 segundos  
+             initialDelaySeconds: 25
+             periodSeconds: 10
+             timeoutSeconds: 10
+             successThreshold: 1
+             failureThreshold: 3
+             # kubernees, mata si es que no contesta
+          livenessProbe:
+             httpGet:
+               path: /actuator/health
+               port: 9999
+            # initialDelaySeconds: verificac cada 10 segundos, debe ser mayor que el de arriba. 
+             initialDelaySeconds: 30
+             periodSeconds: 10
+             timeoutSeconds: 10
+             successThreshold: 1
+            # verifica cada 3 veces. en cada(10segundos)
+             failureThreshold: 3
+          resources:
+            limits:
+              cpu: 500m
+              #cpu: 2000m se satura
+              memory: 256Mi
+            requests:
+              cpu: 100m
+              #cpu: 2000m se satura
+              memory: 128Mi          
+          ports:
+            - containerPort: 9999
+          envFrom:
+            - configMapRef:
+                name: ms-configurations
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: lab05
+  labels:
+    app: lab05
+spec:
+  ports:
+    - port: 9999
+      targetPort: 9999
+  selector:
+    app: lab05
+  type: ClusterIP
